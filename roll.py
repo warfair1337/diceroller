@@ -16,7 +16,7 @@ def main():
         roll_result = random.randint(1, num_sides)
         
         # Print the result
-        print(f"Dice {label}: {roll_result}")
+        print(f"{label}: {roll_result}")
 
 if __name__ == "__main__":
     main()
