@@ -4,7 +4,6 @@ def clear_screen():
     """
     Clear the terminal screen using ANSI escape codes.
     """
-    # \033[2J = clear screen, \033[H = move cursor to home (top-left) position
     print("\033[2J\033[H", end="")
 
 def roll_die(num_sides, dice_so_far, is_bad_gambler):
@@ -13,17 +12,14 @@ def roll_die(num_sides, dice_so_far, is_bad_gambler):
       - If is_bad_gambler is False: normal roll in [1..num_sides].
       - If is_bad_gambler is True:
          (a) 30% chance: Force-match an existing die's value (if any dice exist).
-         (b) Else 70% chance: pick from top half of [1..num_sides].
+         (b) Else 70% chance: pick from the top half of [1..num_sides].
          (c) Else normal roll.
     """
-    # If not a bad gambler, roll normally
     if not is_bad_gambler:
         return random.randint(1, num_sides)
 
-    # Otherwise, do "Bad Gambler" logic:
-
-    # (a) 30% chance to force-match an existing die’s value
-    #     which boosts chances of forming dubs/trips/quads
+    # "Bad Gambler" logic
+    # (a) 30% chance to force-match a random existing die’s value
     if dice_so_far and random.random() < 0.30:
         _, existing_val = random.choice(dice_so_far)
         return existing_val
@@ -34,7 +30,7 @@ def roll_die(num_sides, dice_so_far, is_bad_gambler):
         if lower_bound <= num_sides:
             return random.randint(lower_bound, num_sides)
         else:
-            # Edge case: if num_sides=1, just roll normally
+            # Edge case if num_sides=1 or similar
             return random.randint(1, num_sides)
 
     # (c) Otherwise normal roll
@@ -42,38 +38,34 @@ def roll_die(num_sides, dice_so_far, is_bad_gambler):
 
 def print_dice_results(dice):
     """
-    Print the dice results, applying color if we have Dubs, Trips, or Quads:
+    Print the dice results in alphabetical order (A -> Z).
+    Apply color if we have Dubs, Trips, or Quads (checked for Z, Y, X, W).
 
-    Priority (highest to lowest):
-      - Quads (Z=Y=X=W) -> blue
-      - Trips (Z=Y=X)   -> red
-      - Dubs  (Z=Y)     -> green
+    Priority: Quads > Trips > Dubs
+    - Quads = Z=Y=X=W (blue)
+    - Trips = Z=Y=X   (red)
+    - Dubs  = Z=Y     (green)
 
-    If we achieve one of these, print the "You achieved ..." message
-    in blinking yellow.
+    Achievement message is in blinking yellow (\033[93;5m).
     """
-    # Initialize a map from label -> color (None = no color)
+    # Initialize color map: label -> escape code or None
     color_map = {}
     for (label, _) in dice:
-        color_map[label] = None  # default
+        color_map[label] = None
 
-    # Grab potential values of Z, Y, X, W
-    z_val = None
-    y_val = None
-    x_val = None
-    w_val = None
-
-    for (label, value) in dice:
+    # Identify values of Z, Y, X, W if they exist
+    z_val = y_val = x_val = w_val = None
+    for (label, val) in dice:
         if label == 'Z':
-            z_val = value
+            z_val = val
         elif label == 'Y':
-            y_val = value
+            y_val = val
         elif label == 'X':
-            x_val = value
+            x_val = val
         elif label == 'W':
-            w_val = value
+            w_val = val
 
-    # Decide which condition we meet (in priority order)
+    # Determine if we have Quads, Trips, or Dubs
     achieved_msg = None
 
     # QUADS
@@ -81,73 +73,68 @@ def print_dice_results(dice):
         and z_val == y_val == x_val == w_val):
         achieved_msg = "You got Quads!"
         for lbl in ['Z', 'Y', 'X', 'W']:
-            color_map[lbl] = "\033[34m"  # Blue
+            color_map[lbl] = "\033[34m"  # blue
 
     # TRIPS
     elif (z_val is not None and y_val is not None and x_val is not None
           and z_val == y_val == x_val):
         achieved_msg = "You got Trips!"
         for lbl in ['Z', 'Y', 'X']:
-            color_map[lbl] = "\033[31m"  # Red
+            color_map[lbl] = "\033[31m"  # red
 
     # DUBS
     elif (z_val is not None and y_val is not None
           and z_val == y_val):
         achieved_msg = "You got Dubs!"
         for lbl in ['Z', 'Y']:
-            color_map[lbl] = "\033[32m"  # Green
+            color_map[lbl] = "\033[32m"  # green
 
-    # Print all dice with assigned colors
-    for (label, roll_value) in dice:
+    # Sort dice by label (alphabetical order) and print
+    # (A -> Z, e.g. A, B, C, ... X, Y, Z)
+    for label, roll_value in sorted(dice, key=lambda x: x[0]):
         prefix = color_map[label] if color_map[label] else ""
         suffix = "\033[0m" if color_map[label] else ""
         print(f"{prefix}Dice {label}: {roll_value}{suffix}")
 
-    # If we got a special message, print it in BLINKING YELLOW
-    # \033[93m = bright yellow, \033[5m = blink
-    # Combine them: \033[93;5m
-    # Then reset at the end with \033[0m
+    # If there's an achievement, print in blinking yellow
     if achieved_msg:
-        blink_yellow = "\033[93;5m"
-        reset = "\033[0m"
-        print(f"{blink_yellow}{achieved_msg}{reset}")
+        print(f"\033[93;5m{achieved_msg}\033[0m")
 
 def main():
-    # Clear the screen at program start
+    # Clear the screen at the start
     clear_screen()
 
-    # Ask the user how many dice
+    # Ask user inputs
     num_dice = int(input("How many dice would you like to roll? "))
-
-    # Ask the user how many sides
     num_sides = int(input("How many sides should each die have? "))
 
-    # Ask if user wants "Bad Gambler" mode
+    # "Bad Gambler"?
     bg_input = input("Enable 'Bad Gambler' mode? (y/n): ").lower().strip()
     bad_gambler = (bg_input == 'y')
 
-    # Create list of (label, roll_value)
+    # Create our dice list
     dice = []
-
-    # Initial roll
+    # Label dice from Z backward (Z, Y, X, W, V...) but we can still
+    # display them in alphabetical order when printing
     for i in range(num_dice):
-        label = chr(ord('Z') - i)  # Label from 'Z' backward
-        roll_value = roll_die(num_sides, dice, bad_gambler)
-        dice.append((label, roll_value))
+        label = chr(ord('Z') - i)
+        roll_val = roll_die(num_sides, dice, bad_gambler)
+        dice.append((label, roll_val))
 
     # Print initial results
     print("\nInitial Roll Results:")
     print_dice_results(dice)
 
-    # Allow user to reroll (individual or all)
+    # Reroll loop
     while True:
         cmd = input(
             "\nEnter a dice label to reroll it, "
-            "type 'all' to reroll all dice, or 'done' to finish: "
+            "'all' to reroll all dice, or 'done' to finish: "
         ).upper().strip()
 
         if cmd == "DONE":
             break
+
         elif cmd == "ALL":
             # Reroll all dice
             new_dice = []
@@ -161,7 +148,7 @@ def main():
             print_dice_results(dice)
 
         else:
-            # Reroll a single die, if found
+            # Reroll a single die if found
             for idx, (label, _) in enumerate(dice):
                 if label == cmd:
                     new_roll = roll_die(num_sides, dice, bad_gambler)
@@ -174,10 +161,9 @@ def main():
             else:
                 print("No dice found with that label. Please try again.")
 
-    # Print final results
+    # Final results
     print("\nFinal Dice Results:")
     print_dice_results(dice)
-
 
 if __name__ == "__main__":
     main()
