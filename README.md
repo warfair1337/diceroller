@@ -1,1 +1,2 @@
-Simple dice rolling program
+Simple dice rolling program written with ChatGPT.
+
